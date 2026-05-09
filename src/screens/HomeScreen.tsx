@@ -7,48 +7,64 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import ScreenLayout from '../components/ScreenLayout';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList, EntityType } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
+type ModuleItem = {
+  label: string;
+  entityType: EntityType;
+};
+
+const modules: ModuleItem[] = [
+  { label: 'Customers', entityType: 'customers' },
+  { label: 'Products', entityType: 'products' },
+  { label: 'Categories', entityType: 'categories' },
+  { label: 'Orders', entityType: 'orders' },
+  { label: 'Order Items', entityType: 'orderItems' },
+  { label: 'Suppliers', entityType: 'suppliers' },
+  { label: 'Employees', entityType: 'employees' },
+  { label: 'Addresses', entityType: 'addresses' },
+];
+
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const goToDetails = (): void => {
-    navigation.navigate('Details', {
-      title: 'Szczegóły - drugi widok aplikacji',
-      description:
-        'To jest przykładowy ekran szczegółów. Dane zostały przekazane z pierwszego widoku przy pomocy nawigacji.',
+  const openModule = (label: string, entityType: EntityType): void => {
+    navigation.navigate('EntityList', {
+      entityType,
+      title: label,
     });
   };
 
   return (
     <ScreenLayout
-      title="JP - Moja aplikacja"
-      subtitle="Laby 1 layout + 2 widoki"
+      title="Order Management App"
+      subtitle="Panel główny modułów"
     >
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Widok główny</Text>
-        <Text style={styles.cardText}>
-          To jest pierwszy ekran aplikacji. Zawiera przykładowy opis oraz
-          przycisk przejścia do drugiego widoku.
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>System zarządzania danymi</Text>
+        <Text style={styles.infoText}>
+          Aplikacja prezentuje moduły obsługujące operacje dodawania, edycji
+          i usuwania dla wielu klas biznesowych.
         </Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Laboratoria 1. Cel zadania</Text>
-        <Text style={styles.cardText}>
-          Zaprojektuj Layout aplikacji (Layout + 2 widoki) - zadanie będzie sprawdzane na pierwszym laboratorium.
-        </Text>
+      <View style={styles.grid}>
+        {modules.map(module => (
+          <Pressable
+            key={module.entityType}
+            style={styles.tile}
+            onPress={() => openModule(module.label, module.entityType)}
+          >
+            <Text style={styles.tileText}>{module.label}</Text>
+          </Pressable>
+        ))}
       </View>
-
-      <Pressable style={styles.button} onPress={goToDetails}>
-        <Text style={styles.buttonText}>Przejdź do drugiego widoku</Text>
-      </Pressable>
     </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  infoCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 18,
@@ -58,28 +74,42 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
-  cardTitle: {
+  infoTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1E3A5F',
     marginBottom: 8,
   },
-  cardText: {
+  infoText: {
     fontSize: 15,
     lineHeight: 22,
     color: '#44546A',
   },
-  button: {
-    backgroundColor: '#2E6BE6',
-    borderRadius: 14,
-    paddingVertical: 16,
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  tile: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 24,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
-  buttonText: {
-    color: '#FFFFFF',
+  tileText: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#1E3A5F',
+    textAlign: 'center',
   },
 });
 

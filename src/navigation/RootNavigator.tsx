@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
 import DetailsScreen from '../screens/DetailsScreen';
+import EntityListScreen from '../screens/EntityListScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -29,6 +30,11 @@ function RootNavigator(): React.JSX.Element {
           name="Home"
           component={HomeScreen}
           options={{ title: 'Strona główna' }}
+        />
+        <Stack.Screen
+          name="EntityList"
+          component={EntityListScreen}
+          options={{ title: 'Lista encji' }}
         />
         <Stack.Screen
           name="Details"
