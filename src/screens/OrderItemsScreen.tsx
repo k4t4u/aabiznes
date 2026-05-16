@@ -99,11 +99,11 @@ const OrderItemsScreen: React.FC = () => {
   return (
     <ScreenLayout
       title="Order Items"
-      subtitle="CRUD pozycji zamówień z relacjami"
+      subtitle="Relacja wiele do wielu: Order ↔ Product"
     >
       <SummaryCard title="Liczba rekordów" value={orderItems.length} />
 
-      <InfoBox text="Pozycja zamówienia wykorzystuje dwa klucze obce: orderId wskazuje na Order, a productId wskazuje na Product. Użytkownik wybiera oba powiązania w formularzu, a na liście prezentowane są czytelne nazwy powiązanych rekordów." />
+      <InfoBox text="Encja OrderItem realizuje relację wiele do wielu pomiędzy Order oraz Product. Jedno zamówienie może zawierać wiele produktów, a jeden produkt może występować w wielu zamówieniach." />
 
       {isAddingOrderItem ? (
         <OrderItemForm
@@ -142,10 +142,10 @@ const OrderItemsScreen: React.FC = () => {
           title={`Pozycja ${orderItem.id}`}
           lines={[
             `Zamówienie: ${getOrderLabel(orderItem.orderId)}`,
-            `orderId: ${orderItem.orderId}`,
             `Produkt: ${getProductName(orderItem.productId)}`,
-            `productId: ${orderItem.productId}`,
             `Ilość: ${orderItem.quantity}`,
+            `orderId: ${orderItem.orderId}`,
+            `productId: ${orderItem.productId}`,
           ]}
           onEdit={() => setEditingOrderItemId(orderItem.id)}
           onDelete={() => handleDeleteOrderItem(orderItem.id)}
