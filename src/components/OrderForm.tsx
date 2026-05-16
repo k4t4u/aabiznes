@@ -7,6 +7,12 @@ import {
   Pressable,
 } from 'react-native';
 
+type CustomerOption = {
+  id: string;
+  firstName: string;
+  lastName: string;
+};
+
 type OrderFormValues = {
   customerId: string;
   status: string;
@@ -15,6 +21,7 @@ type OrderFormValues = {
 
 type OrderFormProps = {
   initialValues?: OrderFormValues;
+  customers: CustomerOption[];
   onSubmit: (values: OrderFormValues) => void;
   onCancel: () => void;
   submitLabel: string;
@@ -22,6 +29,7 @@ type OrderFormProps = {
 
 const OrderForm: React.FC<OrderFormProps> = ({
   initialValues,
+  customers,
   onSubmit,
   onCancel,
   submitLabel,
@@ -36,8 +44,10 @@ const OrderForm: React.FC<OrderFormProps> = ({
       setCustomerId(initialValues.customerId);
       setStatus(initialValues.status);
       setCreatedAt(initialValues.createdAt);
+    } else if (customers.length > 0) {
+      setCustomerId(customers[0].id);
     }
-  }, [initialValues]);
+  }, [initialValues, customers]);
 
   const handleSubmit = (): void => {
     if (!customerId.trim() || !status.trim() || !createdAt.trim()) {
@@ -54,20 +64,42 @@ const OrderForm: React.FC<OrderFormProps> = ({
     });
   };
 
+  const handleSelectCustomer = (selectedCustomerId: string): void => {
+    setCustomerId(selectedCustomerId);
+  };
+
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Formularz zamówienia</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.label}>Customer ID</Text>
-      <TextInput
-        style={styles.input}
-        value={customerId}
-        onChangeText={setCustomerId}
-        placeholder="Np. c1"
-        placeholderTextColor="#8A94A6"
-      />
+      <Text style={styles.label}>Klient</Text>
+      <View style={styles.optionsContainer}>
+        {customers.map(customer => {
+          const isSelected = customer.id === customerId;
+
+          return (
+            <Pressable
+              key={customer.id}
+              style={[
+                styles.optionChip,
+                isSelected ? styles.optionChipSelected : null,
+              ]}
+              onPress={() => handleSelectCustomer(customer.id)}
+            >
+              <Text
+                style={[
+                  styles.optionChipText,
+                  isSelected ? styles.optionChipTextSelected : null,
+                ]}
+              >
+                {customer.firstName} {customer.lastName}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <Text style={styles.label}>Status</Text>
       <TextInput
@@ -139,6 +171,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1B263B',
     backgroundColor: '#FDFDFD',
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  optionChip: {
+    borderWidth: 1.5,
+    borderColor: '#D7DFEA',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  optionChipSelected: {
+    borderColor: '#2E6BE6',
+    backgroundColor: '#EAF2FF',
+  },
+  optionChipText: {
+    color: '#44546A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  optionChipTextSelected: {
+    color: '#1E3A5F',
   },
   actions: {
     flexDirection: 'row',

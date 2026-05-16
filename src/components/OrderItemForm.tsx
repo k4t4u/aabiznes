@@ -7,6 +7,15 @@ import {
   Pressable,
 } from 'react-native';
 
+type OrderOption = {
+  id: string;
+};
+
+type ProductOption = {
+  id: string;
+  name: string;
+};
+
 type OrderItemFormValues = {
   orderId: string;
   productId: string;
@@ -15,6 +24,8 @@ type OrderItemFormValues = {
 
 type OrderItemFormProps = {
   initialValues?: OrderItemFormValues;
+  orders: OrderOption[];
+  products: ProductOption[];
   onSubmit: (values: OrderItemFormValues) => void;
   onCancel: () => void;
   submitLabel: string;
@@ -22,6 +33,8 @@ type OrderItemFormProps = {
 
 const OrderItemForm: React.FC<OrderItemFormProps> = ({
   initialValues,
+  orders,
+  products,
   onSubmit,
   onCancel,
   submitLabel,
@@ -36,8 +49,15 @@ const OrderItemForm: React.FC<OrderItemFormProps> = ({
       setOrderId(initialValues.orderId);
       setProductId(initialValues.productId);
       setQuantity(initialValues.quantity);
+    } else {
+      if (orders.length > 0) {
+        setOrderId(orders[0].id);
+      }
+      if (products.length > 0) {
+        setProductId(products[0].id);
+      }
     }
-  }, [initialValues]);
+  }, [initialValues, orders, products]);
 
   const handleSubmit = (): void => {
     if (!orderId.trim() || !productId.trim() || !quantity.trim()) {
@@ -65,23 +85,59 @@ const OrderItemForm: React.FC<OrderItemFormProps> = ({
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.label}>Order ID</Text>
-      <TextInput
-        style={styles.input}
-        value={orderId}
-        onChangeText={setOrderId}
-        placeholder="Np. o1"
-        placeholderTextColor="#8A94A6"
-      />
+      <Text style={styles.label}>Zamówienie</Text>
+      <View style={styles.optionsContainer}>
+        {orders.map(order => {
+          const isSelected = order.id === orderId;
 
-      <Text style={styles.label}>Product ID</Text>
-      <TextInput
-        style={styles.input}
-        value={productId}
-        onChangeText={setProductId}
-        placeholder="Np. p1"
-        placeholderTextColor="#8A94A6"
-      />
+          return (
+            <Pressable
+              key={order.id}
+              style={[
+                styles.optionChip,
+                isSelected ? styles.optionChipSelected : null,
+              ]}
+              onPress={() => setOrderId(order.id)}
+            >
+              <Text
+                style={[
+                  styles.optionChipText,
+                  isSelected ? styles.optionChipTextSelected : null,
+                ]}
+              >
+                {order.id}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Text style={styles.label}>Produkt</Text>
+      <View style={styles.optionsContainer}>
+        {products.map(product => {
+          const isSelected = product.id === productId;
+
+          return (
+            <Pressable
+              key={product.id}
+              style={[
+                styles.optionChip,
+                isSelected ? styles.optionChipSelected : null,
+              ]}
+              onPress={() => setProductId(product.id)}
+            >
+              <Text
+                style={[
+                  styles.optionChipText,
+                  isSelected ? styles.optionChipTextSelected : null,
+                ]}
+              >
+                {product.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <Text style={styles.label}>Ilość</Text>
       <TextInput
@@ -145,6 +201,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1B263B',
     backgroundColor: '#FDFDFD',
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  optionChip: {
+    borderWidth: 1.5,
+    borderColor: '#D7DFEA',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  optionChipSelected: {
+    borderColor: '#2E6BE6',
+    backgroundColor: '#EAF2FF',
+  },
+  optionChipText: {
+    color: '#44546A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  optionChipTextSelected: {
+    color: '#1E3A5F',
   },
   actions: {
     flexDirection: 'row',

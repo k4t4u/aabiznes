@@ -7,32 +7,36 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import ScreenLayout from '../components/ScreenLayout';
-import { RootStackParamList, EntityType } from '../navigation/types';
+import { RootStackParamList, SimpleEntityType } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-type ModuleItem = {
-  label: string;
-  entityType: EntityType;
-};
+type ModuleItem =
+  | { label: string; screen: 'Products' | 'Customers' | 'Categories' | 'Orders' | 'OrderItems' }
+  | { label: string; screen: 'SimpleList'; entityType: SimpleEntityType };
 
 const modules: ModuleItem[] = [
-  { label: 'Customers', entityType: 'customers' },
-  { label: 'Products', entityType: 'products' },
-  { label: 'Categories', entityType: 'categories' },
-  { label: 'Orders', entityType: 'orders' },
-  { label: 'Order Items', entityType: 'orderItems' },
-  { label: 'Suppliers', entityType: 'suppliers' },
-  { label: 'Employees', entityType: 'employees' },
-  { label: 'Addresses', entityType: 'addresses' },
+  { label: 'Customers', screen: 'Customers' },
+  { label: 'Products', screen: 'Products' },
+  { label: 'Categories', screen: 'Categories' },
+  { label: 'Orders', screen: 'Orders' },
+  { label: 'Order Items', screen: 'OrderItems' },
+  { label: 'Suppliers', screen: 'SimpleList', entityType: 'suppliers' },
+  { label: 'Employees', screen: 'SimpleList', entityType: 'employees' },
+  { label: 'Addresses', screen: 'SimpleList', entityType: 'addresses' },
 ];
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const openModule = (label: string, entityType: EntityType): void => {
-    navigation.navigate('EntityList', {
-      entityType,
-      title: label,
-    });
+  const openModule = (module: ModuleItem): void => {
+    if (module.screen === 'SimpleList') {
+      navigation.navigate('SimpleList', {
+        entityType: module.entityType,
+        title: module.label,
+      });
+      return;
+    }
+
+    navigation.navigate(module.screen);
   };
 
   return (
@@ -43,17 +47,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>System zarządzania danymi</Text>
         <Text style={styles.infoText}>
-          Aplikacja prezentuje moduły obsługujące operacje dodawania, edycji
-          i usuwania dla wielu klas biznesowych.
+          Aplikacja została podzielona na osobne moduły CRUD oraz listy pomocnicze.
+          Dzięki temu kod jest czytelniejszy, łatwiejszy w utrzymaniu i bardziej spójny
+          z podejściem projektowym z zajęć.
         </Text>
       </View>
 
       <View style={styles.grid}>
         {modules.map(module => (
           <Pressable
-            key={module.entityType}
+            key={module.label}
             style={styles.tile}
-            onPress={() => openModule(module.label, module.entityType)}
+            onPress={() => openModule(module)}
           >
             <Text style={styles.tileText}>{module.label}</Text>
           </Pressable>

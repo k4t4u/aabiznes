@@ -7,6 +7,11 @@ import {
   Pressable,
 } from 'react-native';
 
+type CategoryOption = {
+  id: string;
+  name: string;
+};
+
 type ProductFormValues = {
   name: string;
   price: string;
@@ -15,6 +20,7 @@ type ProductFormValues = {
 
 type ProductFormProps = {
   initialValues?: ProductFormValues;
+  categories: CategoryOption[];
   onSubmit: (values: ProductFormValues) => void;
   onCancel: () => void;
   submitLabel: string;
@@ -22,6 +28,7 @@ type ProductFormProps = {
 
 const ProductForm: React.FC<ProductFormProps> = ({
   initialValues,
+  categories,
   onSubmit,
   onCancel,
   submitLabel,
@@ -36,8 +43,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
       setName(initialValues.name);
       setPrice(initialValues.price);
       setCategoryId(initialValues.categoryId);
+    } else if (categories.length > 0) {
+      setCategoryId(categories[0].id);
     }
-  }, [initialValues]);
+  }, [initialValues, categories]);
 
   const handleSubmit = (): void => {
     if (!name.trim() || !price.trim() || !categoryId.trim()) {
@@ -57,6 +66,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
       price: price.trim(),
       categoryId: categoryId.trim(),
     });
+  };
+
+  const handleSelectCategory = (selectedCategoryId: string): void => {
+    setCategoryId(selectedCategoryId);
   };
 
   return (
@@ -84,14 +97,32 @@ const ProductForm: React.FC<ProductFormProps> = ({
         keyboardType="numeric"
       />
 
-      <Text style={styles.label}>Category ID</Text>
-      <TextInput
-        style={styles.input}
-        value={categoryId}
-        onChangeText={setCategoryId}
-        placeholder="Np. cat1"
-        placeholderTextColor="#8A94A6"
-      />
+      <Text style={styles.label}>Kategoria</Text>
+      <View style={styles.categoriesContainer}>
+        {categories.map(category => {
+          const isSelected = category.id === categoryId;
+
+          return (
+            <Pressable
+              key={category.id}
+              style={[
+                styles.categoryChip,
+                isSelected ? styles.categoryChipSelected : null,
+              ]}
+              onPress={() => handleSelectCategory(category.id)}
+            >
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  isSelected ? styles.categoryChipTextSelected : null,
+                ]}
+              >
+                {category.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <View style={styles.actions}>
         <Pressable style={styles.cancelButton} onPress={onCancel}>
@@ -145,6 +176,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1B263B',
     backgroundColor: '#FDFDFD',
+  },
+  categoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  categoryChip: {
+    borderWidth: 1.5,
+    borderColor: '#D7DFEA',
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  categoryChipSelected: {
+    borderColor: '#2E6BE6',
+    backgroundColor: '#EAF2FF',
+  },
+  categoryChipText: {
+    color: '#44546A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  categoryChipTextSelected: {
+    color: '#1E3A5F',
   },
   actions: {
     flexDirection: 'row',

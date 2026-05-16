@@ -1,21 +1,17 @@
-export type EntityType =
-  | 'customers'
-  | 'products'
-  | 'categories'
-  | 'orders'
-  | 'orderItems'
+export type SimpleEntityType =
   | 'suppliers'
   | 'employees'
   | 'addresses';
 
 export type RootStackParamList = {
   Home: undefined;
-  EntityList: {
-    entityType: EntityType;
+  Products: undefined;
+  Customers: undefined;
+  Categories: undefined;
+  Orders: undefined;
+  OrderItems: undefined;
+  SimpleList: {
+    entityType: SimpleEntityType;
     title: string;
-  };
-  Details: {
-    title: string;
-    description: string;
   };
 };
