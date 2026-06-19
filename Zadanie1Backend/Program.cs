@@ -1,7 +1,22 @@
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using Serilog.Formatting.Compact;
 using SolutionOrders.API.Data;
 
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File(
+        formatter: new RenderedCompactJsonFormatter(),
+        path: "/app/logs/api-.log",
+        rollingInterval: RollingInterval.Day,
+        shared: true)
+    .CreateLogger();
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -28,6 +43,8 @@ using (var scope = app.Services.CreateScope())
     dbContext.Database.EnsureCreated();
     DbSeeder.Seed(dbContext);
 }
+
+app.UseSerilogRequestLogging();
 
 app.UseSwagger();
 app.UseSwaggerUI();
