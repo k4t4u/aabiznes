@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Text,
@@ -11,11 +11,20 @@ import SummaryCard from '../components/SummaryCard';
 import EntityCard from '../components/EntityCard';
 import InfoBox from '../components/InfoBox';
 import {
-  orderItems as initialOrderItems,
-  orders as initialOrders,
-  products as initialProducts,
-} from '../data/mockData';
-import { OrderItem, Order, Product } from '../models/models';
+  getOrderItems,
+  createOrderItem,
+  updateOrderItem,
+  deleteOrderItem,
+  OrderItemDto,
+} from '../api/orderItemsApi';
+import {
+  getOrders,
+  OrderDto,
+} from '../api/ordersApi';
+import {
+  getProducts,
+  ProductDto,
+} from '../api/productsApi';
 
 type OrderItemFormValues = {
   orderId: string;
@@ -24,9 +33,10 @@ type OrderItemFormValues = {
 };
 
 const OrderItemsScreen: React.FC = () => {
-  const [orderItems, setOrderItems] = useState<OrderItem[]>(initialOrderItems);
-  const [orders] = useState<Order[]>(initialOrders);
-  const [products] = useState<Product[]>(initialProducts);
+  const [orderItems, setOrderItems] = useState<OrderItemDto[]>([]);
+  const [orders, setOrders] = useState<OrderDto[]>([]);
+  const [products, setProducts] = useState<ProductDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isAddingOrderItem, setIsAddingOrderItem] = useState(false);
   const [editingOrderItemId, setEditingOrderItemId] = useState<string | null>(null);
@@ -36,47 +46,78 @@ const OrderItemsScreen: React.FC = () => {
     [orderItems, editingOrderItemId],
   );
 
-  const getOrderLabel = (orderId: string): string => {
-    const order = orders.find(item => item.id === orderId);
-    return order ? `Zamówienie ${order.id}` : 'Nieznane zamówienie';
+  const loadData = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+
+      const [orderItemsData, ordersData, productsData] = await Promise.all([
+        getOrderItems(),
+        getOrders(),
+        getProducts(),
+      ]);
+
+      setOrderItems(orderItemsData);
+      setOrders(ordersData);
+      setProducts(productsData);
+    } catch (error) {
+      Alert.alert(
+        'Błąd',
+        'Nie udało się pobrać pozycji zamówień, zamówień lub produktów.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleAddOrderItem = async (
+    values: OrderItemFormValues,
+  ): Promise<void> => {
+    try {
+      const created = await createOrderItem({
+        orderId: values.orderId,
+        productId: values.productId,
+        quantity: Number(values.quantity),
+      });
+
+      setOrderItems(prev => [...prev, created]);
+      setIsAddingOrderItem(false);
+    } catch (error: any) {
+      Alert.alert(
+        'Błąd',
+        error?.message || 'Nie udało się utworzyć pozycji zamówienia.',
+      );
+    }
   };
 
-  const getProductName = (productId: string): string => {
-    const product = products.find(item => item.id === productId);
-    return product ? product.name : 'Nieznany produkt';
-  };
-
-  const handleAddOrderItem = (values: OrderItemFormValues): void => {
-    const newOrderItem: OrderItem = {
-      id: `oi${Date.now()}`,
-      orderId: values.orderId,
-      productId: values.productId,
-      quantity: Number(values.quantity),
-    };
-
-    setOrderItems(prev => [...prev, newOrderItem]);
-    setIsAddingOrderItem(false);
-  };
-
-  const handleEditOrderItem = (values: OrderItemFormValues): void => {
+  const handleEditOrderItem = async (
+    values: OrderItemFormValues,
+  ): Promise<void> => {
     if (!editingOrderItemId) {
       return;
     }
 
-    setOrderItems(prev =>
-      prev.map(item =>
-        item.id === editingOrderItemId
-          ? {
-              ...item,
-              orderId: values.orderId,
-              productId: values.productId,
-              quantity: Number(values.quantity),
-            }
-          : item,
-      ),
-    );
+    try {
+      const updated = await updateOrderItem(editingOrderItemId, {
+        orderId: values.orderId,
+        productId: values.productId,
+        quantity: Number(values.quantity),
+      });
 
-    setEditingOrderItemId(null);
+      setOrderItems(prev =>
+        prev.map(item => (item.id === editingOrderItemId ? updated : item)),
+      );
+
+      setEditingOrderItemId(null);
+    } catch (error: any) {
+      Alert.alert(
+        'Błąd',
+        error?.message || 'Nie udało się zaktualizować pozycji zamówienia.',
+      );
+    }
   };
 
   const handleDeleteOrderItem = (orderItemId: string): void => {
@@ -88,8 +129,16 @@ const OrderItemsScreen: React.FC = () => {
         {
           text: 'Usuń',
           style: 'destructive',
-          onPress: () => {
-            setOrderItems(prev => prev.filter(item => item.id !== orderItemId));
+          onPress: async () => {
+            try {
+              await deleteOrderItem(orderItemId);
+              setOrderItems(prev => prev.filter(item => item.id !== orderItemId));
+            } catch (error: any) {
+              Alert.alert(
+                'Błąd',
+                error?.message || 'Nie udało się usunąć pozycji zamówienia.',
+              );
+            }
           },
         },
       ],
@@ -99,11 +148,13 @@ const OrderItemsScreen: React.FC = () => {
   return (
     <ScreenLayout
       title="Order Items"
-      subtitle="Relacja wiele do wielu: Order ↔ Product"
+      subtitle="Relacja wiele do wielu przez API"
     >
       <SummaryCard title="Liczba rekordów" value={orderItems.length} />
 
-      <InfoBox text="Encja OrderItem realizuje relację wiele do wielu pomiędzy Order oraz Product. Jedno zamówienie może zawierać wiele produktów, a jeden produkt może występować w wielu zamówieniach." />
+      <InfoBox text="Ten ekran korzysta z backendu API. Encja OrderItem realizuje relację wiele do wielu pomiędzy Order oraz Product." />
+
+      {isLoading ? <Text style={styles.statusText}>Ładowanie danych...</Text> : null}
 
       {isAddingOrderItem ? (
         <OrderItemForm
@@ -141,8 +192,8 @@ const OrderItemsScreen: React.FC = () => {
           key={orderItem.id}
           title={`Pozycja ${orderItem.id}`}
           lines={[
-            `Zamówienie: ${getOrderLabel(orderItem.orderId)}`,
-            `Produkt: ${getProductName(orderItem.productId)}`,
+            `Zamówienie: ${orderItem.orderLabel}`,
+            `Produkt: ${orderItem.productName}`,
             `Ilość: ${orderItem.quantity}`,
             `orderId: ${orderItem.orderId}`,
             `productId: ${orderItem.productId}`,
@@ -165,6 +216,10 @@ const OrderItemsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  statusText: {
+    fontSize: 15,
+    color: '#44546A',
+  },
   primaryButton: {
     backgroundColor: '#2E6BE6',
     borderRadius: 14,

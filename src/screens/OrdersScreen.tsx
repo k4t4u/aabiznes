@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Text,
@@ -11,10 +11,16 @@ import SummaryCard from '../components/SummaryCard';
 import EntityCard from '../components/EntityCard';
 import InfoBox from '../components/InfoBox';
 import {
-  orders as initialOrders,
-  customers as initialCustomers,
-} from '../data/mockData';
-import { Order, Customer } from '../models/models';
+  getOrders,
+  createOrder,
+  updateOrder,
+  deleteOrder,
+  OrderDto,
+} from '../api/ordersApi';
+import {
+  getCustomers,
+  CustomerDto,
+} from '../api/customersApi';
 
 type OrderFormValues = {
   customerId: string;
@@ -23,8 +29,9 @@ type OrderFormValues = {
 };
 
 const OrdersScreen: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
-  const [customers] = useState<Customer[]>(initialCustomers);
+  const [orders, setOrders] = useState<OrderDto[]>([]);
+  const [customers, setCustomers] = useState<CustomerDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isAddingOrder, setIsAddingOrder] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -34,44 +41,55 @@ const OrdersScreen: React.FC = () => {
     [orders, editingOrderId],
   );
 
-  const getCustomerName = (customerId: string): string => {
-    const customer = customers.find(item => item.id === customerId);
-    return customer
-      ? `${customer.firstName} ${customer.lastName}`
-      : 'Nieznany klient';
+  const loadData = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+
+      const [ordersData, customersData] = await Promise.all([
+        getOrders(),
+        getCustomers(),
+      ]);
+
+      setOrders(ordersData);
+      setCustomers(customersData);
+    } catch (error) {
+      Alert.alert('Błąd', 'Nie udało się pobrać zamówień lub klientów.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleAddOrder = async (values: OrderFormValues): Promise<void> => {
+    try {
+      const created = await createOrder(values);
+      setOrders(prev => [...prev, created]);
+      setIsAddingOrder(false);
+    } catch (error: any) {
+      Alert.alert('Błąd', error?.message || 'Nie udało się utworzyć zamówienia.');
+    }
   };
 
-  const handleAddOrder = (values: OrderFormValues): void => {
-    const newOrder: Order = {
-      id: `o${Date.now()}`,
-      customerId: values.customerId,
-      status: values.status,
-      createdAt: values.createdAt,
-    };
-
-    setOrders(prev => [...prev, newOrder]);
-    setIsAddingOrder(false);
-  };
-
-  const handleEditOrder = (values: OrderFormValues): void => {
+  const handleEditOrder = async (values: OrderFormValues): Promise<void> => {
     if (!editingOrderId) {
       return;
     }
 
-    setOrders(prev =>
-      prev.map(item =>
-        item.id === editingOrderId
-          ? {
-              ...item,
-              customerId: values.customerId,
-              status: values.status,
-              createdAt: values.createdAt,
-            }
-          : item,
-      ),
-    );
-
-    setEditingOrderId(null);
+    try {
+      const updated = await updateOrder(editingOrderId, values);
+      setOrders(prev =>
+        prev.map(item => (item.id === editingOrderId ? updated : item)),
+      );
+      setEditingOrderId(null);
+    } catch (error: any) {
+      Alert.alert(
+        'Błąd',
+        error?.message || 'Nie udało się zaktualizować zamówienia.',
+      );
+    }
   };
 
   const handleDeleteOrder = (orderId: string): void => {
@@ -83,8 +101,16 @@ const OrdersScreen: React.FC = () => {
         {
           text: 'Usuń',
           style: 'destructive',
-          onPress: () => {
-            setOrders(prev => prev.filter(item => item.id !== orderId));
+          onPress: async () => {
+            try {
+              await deleteOrder(orderId);
+              setOrders(prev => prev.filter(item => item.id !== orderId));
+            } catch (error: any) {
+              Alert.alert(
+                'Błąd',
+                error?.message || 'Nie udało się usunąć zamówienia.',
+              );
+            }
           },
         },
       ],
@@ -94,11 +120,13 @@ const OrdersScreen: React.FC = () => {
   return (
     <ScreenLayout
       title="Orders"
-      subtitle="CRUD zamówień z relacją do klientów"
+      subtitle="CRUD zamówień z API i relacją do klientów"
     >
       <SummaryCard title="Liczba rekordów" value={orders.length} />
 
-      <InfoBox text="Zamówienie posiada klucz obcy customerId wskazujący na Customer. Użytkownik wybiera klienta podczas dodawania i edycji zamówienia, a na liście wyświetlane są dane powiązanego klienta." />
+      <InfoBox text="Ten ekran korzysta z backendu API. Zamówienia i klienci są pobierani z serwera, a relacja Order -> Customer działa przez prawdziwy klucz obcy." />
+
+      {isLoading ? <Text style={styles.statusText}>Ładowanie danych...</Text> : null}
 
       {isAddingOrder ? (
         <OrderForm
@@ -128,7 +156,7 @@ const OrdersScreen: React.FC = () => {
           key={order.id}
           title={`Zamówienie ${order.id}`}
           lines={[
-            `Klient: ${getCustomerName(order.customerId)}`,
+            `Klient: ${order.customerName}`,
             `customerId: ${order.customerId}`,
             `Status: ${order.status}`,
             `Data: ${order.createdAt}`,
@@ -151,6 +179,10 @@ const OrdersScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  statusText: {
+    fontSize: 15,
+    color: '#44546A',
+  },
   primaryButton: {
     backgroundColor: '#2E6BE6',
     borderRadius: 14,

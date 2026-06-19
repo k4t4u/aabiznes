@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Text,
@@ -10,8 +10,13 @@ import CustomerForm from '../components/CustomerForm';
 import SummaryCard from '../components/SummaryCard';
 import EntityCard from '../components/EntityCard';
 import InfoBox from '../components/InfoBox';
-import { customers as initialCustomers } from '../data/mockData';
-import { Customer } from '../models/models';
+import {
+  getCustomers,
+  createCustomer,
+  updateCustomer,
+  deleteCustomer,
+  CustomerDto,
+} from '../api/customersApi';
 
 type CustomerFormValues = {
   firstName: string;
@@ -20,7 +25,8 @@ type CustomerFormValues = {
 };
 
 const CustomersScreen: React.FC = () => {
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [customers, setCustomers] = useState<CustomerDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
 
@@ -29,37 +35,51 @@ const CustomersScreen: React.FC = () => {
     [customers, editingCustomerId],
   );
 
-  const handleAddCustomer = (values: CustomerFormValues): void => {
-    const newCustomer: Customer = {
-      id: `c${Date.now()}`,
-      firstName: values.firstName,
-      lastName: values.lastName,
-      email: values.email,
-    };
+  const loadCustomers = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const data = await getCustomers();
+      setCustomers(data);
+    } catch (error) {
+      Alert.alert('Błąd', 'Nie udało się pobrać klientów.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-    setCustomers(prev => [...prev, newCustomer]);
-    setIsAddingCustomer(false);
+  useEffect(() => {
+    loadCustomers();
+  }, [loadCustomers]);
+
+  const handleAddCustomer = async (values: CustomerFormValues): Promise<void> => {
+    try {
+      const created = await createCustomer(values);
+      setCustomers(prev => [...prev, created]);
+      setIsAddingCustomer(false);
+    } catch (error: any) {
+      Alert.alert('Błąd', error?.message || 'Nie udało się utworzyć klienta.');
+    }
   };
 
-  const handleEditCustomer = (values: CustomerFormValues): void => {
+  const handleEditCustomer = async (
+    values: CustomerFormValues,
+  ): Promise<void> => {
     if (!editingCustomerId) {
       return;
     }
 
-    setCustomers(prev =>
-      prev.map(item =>
-        item.id === editingCustomerId
-          ? {
-              ...item,
-              firstName: values.firstName,
-              lastName: values.lastName,
-              email: values.email,
-            }
-          : item,
-      ),
-    );
-
-    setEditingCustomerId(null);
+    try {
+      const updated = await updateCustomer(editingCustomerId, values);
+      setCustomers(prev =>
+        prev.map(item => (item.id === editingCustomerId ? updated : item)),
+      );
+      setEditingCustomerId(null);
+    } catch (error: any) {
+      Alert.alert(
+        'Błąd',
+        error?.message || 'Nie udało się zaktualizować klienta.',
+      );
+    }
   };
 
   const handleDeleteCustomer = (customerId: string): void => {
@@ -71,8 +91,16 @@ const CustomersScreen: React.FC = () => {
         {
           text: 'Usuń',
           style: 'destructive',
-          onPress: () => {
-            setCustomers(prev => prev.filter(item => item.id !== customerId));
+          onPress: async () => {
+            try {
+              await deleteCustomer(customerId);
+              setCustomers(prev => prev.filter(item => item.id !== customerId));
+            } catch (error: any) {
+              Alert.alert(
+                'Błąd',
+                error?.message || 'Nie udało się usunąć klienta.',
+              );
+            }
           },
         },
       ],
@@ -80,13 +108,12 @@ const CustomersScreen: React.FC = () => {
   };
 
   return (
-    <ScreenLayout
-      title="Customers"
-      subtitle="CRUD klientów"
-    >
+    <ScreenLayout title="Customers" subtitle="CRUD klientów z API">
       <SummaryCard title="Liczba rekordów" value={customers.length} />
 
-      <InfoBox text="Ten ekran obsługuje pełny CRUD klientów. Klienci będą wykorzystywani jako encja powiązana w module Orders, gdzie zamówienie będzie wskazywać konkretnego klienta przez customerId." />
+      <InfoBox text="Ten ekran korzysta z prawdziwego backendu API. Klienci są pobierani, dodawani, edytowani i usuwani przez endpointy HTTP." />
+
+      {isLoading ? <Text style={styles.statusText}>Ładowanie danych...</Text> : null}
 
       {isAddingCustomer ? (
         <CustomerForm
@@ -135,6 +162,10 @@ const CustomersScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  statusText: {
+    fontSize: 15,
+    color: '#44546A',
+  },
   primaryButton: {
     backgroundColor: '#2E6BE6',
     borderRadius: 14,

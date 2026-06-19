@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Text,
@@ -11,10 +11,16 @@ import SummaryCard from '../components/SummaryCard';
 import EntityCard from '../components/EntityCard';
 import InfoBox from '../components/InfoBox';
 import {
-  products as initialProducts,
-  categories as initialCategories,
-} from '../data/mockData';
-import { Product, Category } from '../models/models';
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  ProductDto,
+} from '../api/productsApi';
+import {
+  getCategories,
+  CategoryDto,
+} from '../api/categoriesApi';
 
 type ProductFormValues = {
   name: string;
@@ -23,8 +29,9 @@ type ProductFormValues = {
 };
 
 const ProductsScreen: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [categories] = useState<Category[]>(initialCategories);
+  const [products, setProducts] = useState<ProductDto[]>([]);
+  const [categories, setCategories] = useState<CategoryDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -34,42 +41,66 @@ const ProductsScreen: React.FC = () => {
     [products, editingProductId],
   );
 
-  const getCategoryName = (categoryId: string): string => {
-    const category = categories.find(item => item.id === categoryId);
-    return category ? category.name : 'Nieznana kategoria';
+  const loadData = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+
+      const [productsData, categoriesData] = await Promise.all([
+        getProducts(),
+        getCategories(),
+      ]);
+
+      setProducts(productsData);
+      setCategories(categoriesData);
+    } catch (error) {
+      Alert.alert('Błąd', 'Nie udało się pobrać produktów lub kategorii.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleAddProduct = async (values: ProductFormValues): Promise<void> => {
+    try {
+      const created = await createProduct({
+        name: values.name,
+        price: Number(values.price),
+        categoryId: values.categoryId,
+      });
+
+      setProducts(prev => [...prev, created]);
+      setIsAddingProduct(false);
+    } catch (error: any) {
+      Alert.alert('Błąd', error?.message || 'Nie udało się utworzyć produktu.');
+    }
   };
 
-  const handleAddProduct = (values: ProductFormValues): void => {
-    const newProduct: Product = {
-      id: `p${Date.now()}`,
-      name: values.name,
-      price: Number(values.price),
-      categoryId: values.categoryId,
-    };
-
-    setProducts(prev => [...prev, newProduct]);
-    setIsAddingProduct(false);
-  };
-
-  const handleEditProduct = (values: ProductFormValues): void => {
+  const handleEditProduct = async (values: ProductFormValues): Promise<void> => {
     if (!editingProductId) {
       return;
     }
 
-    setProducts(prev =>
-      prev.map(item =>
-        item.id === editingProductId
-          ? {
-              ...item,
-              name: values.name,
-              price: Number(values.price),
-              categoryId: values.categoryId,
-            }
-          : item,
-      ),
-    );
+    try {
+      const updated = await updateProduct(editingProductId, {
+        name: values.name,
+        price: Number(values.price),
+        categoryId: values.categoryId,
+      });
 
-    setEditingProductId(null);
+      setProducts(prev =>
+        prev.map(item => (item.id === editingProductId ? updated : item)),
+      );
+
+      setEditingProductId(null);
+    } catch (error: any) {
+      Alert.alert(
+        'Błąd',
+        error?.message || 'Nie udało się zaktualizować produktu.',
+      );
+    }
   };
 
   const handleDeleteProduct = (productId: string): void => {
@@ -81,8 +112,16 @@ const ProductsScreen: React.FC = () => {
         {
           text: 'Usuń',
           style: 'destructive',
-          onPress: () => {
-            setProducts(prev => prev.filter(item => item.id !== productId));
+          onPress: async () => {
+            try {
+              await deleteProduct(productId);
+              setProducts(prev => prev.filter(item => item.id !== productId));
+            } catch (error: any) {
+              Alert.alert(
+                'Błąd',
+                error?.message || 'Nie udało się usunąć produktu.',
+              );
+            }
           },
         },
       ],
@@ -92,11 +131,13 @@ const ProductsScreen: React.FC = () => {
   return (
     <ScreenLayout
       title="Products"
-      subtitle="CRUD produktów z relacją do kategorii"
+      subtitle="CRUD produktów z API i relacją do kategorii"
     >
       <SummaryCard title="Liczba rekordów" value={products.length} />
 
-      <InfoBox text="Produkt posiada klucz obcy categoryId wskazujący na Category. Użytkownik wybiera kategorię podczas dodawania i edycji produktu, a na liście wyświetlana jest nazwa powiązanej kategorii." />
+      <InfoBox text="Ten ekran korzysta z backendu API. Produkty i kategorie są pobierane z serwera, a relacja Product -> Category działa przez prawdziwy klucz obcy." />
+
+      {isLoading ? <Text style={styles.statusText}>Ładowanie danych...</Text> : null}
 
       {isAddingProduct ? (
         <ProductForm
@@ -127,7 +168,7 @@ const ProductsScreen: React.FC = () => {
           title={product.name}
           lines={[
             `Cena: ${product.price} PLN`,
-            `Kategoria: ${getCategoryName(product.categoryId)}`,
+            `Kategoria: ${product.categoryName}`,
             `categoryId: ${product.categoryId}`,
           ]}
           onEdit={() => setEditingProductId(product.id)}
@@ -148,6 +189,10 @@ const ProductsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  statusText: {
+    fontSize: 15,
+    color: '#44546A',
+  },
   primaryButton: {
     backgroundColor: '#2E6BE6',
     borderRadius: 14,

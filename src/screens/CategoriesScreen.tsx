@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Text,
@@ -10,15 +10,21 @@ import CategoryForm from '../components/CategoryForm';
 import SummaryCard from '../components/SummaryCard';
 import EntityCard from '../components/EntityCard';
 import InfoBox from '../components/InfoBox';
-import { categories as initialCategories } from '../data/mockData';
-import { Category } from '../models/models';
+import {
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  CategoryDto,
+} from '../api/categoriesApi';
 
 type CategoryFormValues = {
   name: string;
 };
 
 const CategoriesScreen: React.FC = () => {
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [categories, setCategories] = useState<CategoryDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
@@ -27,33 +33,53 @@ const CategoriesScreen: React.FC = () => {
     [categories, editingCategoryId],
   );
 
-  const handleAddCategory = (values: CategoryFormValues): void => {
-    const newCategory: Category = {
-      id: `cat${Date.now()}`,
-      name: values.name,
-    };
+  const loadCategories = useCallback(async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const data = await getCategories();
+      setCategories(data);
+    } catch (error) {
+      Alert.alert('Błąd', 'Nie udało się pobrać kategorii.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-    setCategories(prev => [...prev, newCategory]);
-    setIsAddingCategory(false);
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const handleAddCategory = async (values: CategoryFormValues): Promise<void> => {
+    try {
+      const created = await createCategory({
+        name: values.name,
+      });
+
+      setCategories(prev => [...prev, created]);
+      setIsAddingCategory(false);
+    } catch (error) {
+      Alert.alert('Błąd', 'Nie udało się utworzyć kategorii.');
+    }
   };
 
-  const handleEditCategory = (values: CategoryFormValues): void => {
+  const handleEditCategory = async (values: CategoryFormValues): Promise<void> => {
     if (!editingCategoryId) {
       return;
     }
 
-    setCategories(prev =>
-      prev.map(item =>
-        item.id === editingCategoryId
-          ? {
-              ...item,
-              name: values.name,
-            }
-          : item,
-      ),
-    );
+    try {
+      const updated = await updateCategory(editingCategoryId, {
+        name: values.name,
+      });
 
-    setEditingCategoryId(null);
+      setCategories(prev =>
+        prev.map(item => (item.id === editingCategoryId ? updated : item)),
+      );
+
+      setEditingCategoryId(null);
+    } catch (error) {
+      Alert.alert('Błąd', 'Nie udało się zaktualizować kategorii.');
+    }
   };
 
   const handleDeleteCategory = (categoryId: string): void => {
@@ -65,8 +91,16 @@ const CategoriesScreen: React.FC = () => {
         {
           text: 'Usuń',
           style: 'destructive',
-          onPress: () => {
-            setCategories(prev => prev.filter(item => item.id !== categoryId));
+          onPress: async () => {
+            try {
+              await deleteCategory(categoryId);
+              setCategories(prev => prev.filter(item => item.id !== categoryId));
+            } catch (error: any) {
+              Alert.alert(
+                'Błąd',
+                error?.message || 'Nie udało się usunąć kategorii.',
+              );
+            }
           },
         },
       ],
@@ -76,11 +110,13 @@ const CategoriesScreen: React.FC = () => {
   return (
     <ScreenLayout
       title="Categories"
-      subtitle="CRUD kategorii"
+      subtitle="CRUD kategorii z API"
     >
       <SummaryCard title="Liczba rekordów" value={categories.length} />
 
-      <InfoBox text="Ten ekran obsługuje pełny CRUD kategorii. Kategorie są encją nadrzędną dla produktów, ponieważ produkt przechowuje klucz obcy categoryId wskazujący konkretną kategorię." />
+      <InfoBox text="Ten ekran korzysta z prawdziwego backendu API. Kategorie są pobierane, dodawane, edytowane i usuwane przez endpointy HTTP." />
+
+      {isLoading ? <Text style={styles.statusText}>Ładowanie danych...</Text> : null}
 
       {isAddingCategory ? (
         <CategoryForm
@@ -105,9 +141,7 @@ const CategoriesScreen: React.FC = () => {
         <EntityCard
           key={category.id}
           title={category.name}
-          lines={[
-            `ID: ${category.id}`,
-          ]}
+          lines={[`ID: ${category.id}`]}
           onEdit={() => setEditingCategoryId(category.id)}
           onDelete={() => handleDeleteCategory(category.id)}
         />
@@ -126,6 +160,10 @@ const CategoriesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  statusText: {
+    fontSize: 15,
+    color: '#44546A',
+  },
   primaryButton: {
     backgroundColor: '#2E6BE6',
     borderRadius: 14,
